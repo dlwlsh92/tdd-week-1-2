@@ -1,6 +1,5 @@
 import {PointService} from "./point.service";
 import {Test, TestingModule} from "@nestjs/testing";
-import {DatabaseModule} from "../database/database.module";
 import {UserPoint} from "./point.model";
 import {UserPointTable} from "../database/userpoint.table";
 import {PointHistoryTable} from "../database/pointhistory.table";
@@ -36,6 +35,10 @@ describe('Point 조회, 충전, 사용, 내역 조회 로직 테스트', () => {
          * withUserLock 메소드를 mock으로 대체해서 mutex를 배제한 상태로 테스트를 진행한다.
          */
         jest.spyOn(pointService, 'withUserLock').mockImplementation(async (userId, fn) => fn());
+    })
+
+    afterAll(() => {
+        jest.clearAllMocks();
     })
 
     it('test', () => {
