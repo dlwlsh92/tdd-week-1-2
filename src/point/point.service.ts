@@ -2,7 +2,7 @@ import {Injectable} from "@nestjs/common";
 import {UserPointTable} from "../database/userpoint.table";
 import {PointHistoryTable} from "../database/pointhistory.table";
 import { Mutex } from 'async-mutex';
-import {sortHistoryByTime} from "./point.model";
+import {sortHistoryByTime, TransactionType} from "./point.model";
 
 
 @Injectable()
@@ -23,8 +23,14 @@ export class PointService {
         return mutex;
     }
 
-    getUserPoint(userId: number) {
-        return this.userDb.selectById(userId)
+    async getUserPoint(userId: number) {
+        this.isValidId(userId);
+        try {
+            const userPoint = await this.userDb.selectById(userId)
+            return userPoint
+        } catch (e) {
+            throw new Error("포인트 조회에 실패하였습니다.")
+        }
     }
 
     async withUserLock(userId: number, fn: () => Promise<any>) {
@@ -49,15 +55,35 @@ export class PointService {
         this.isValidId(userId)
         this.isValidAmount(amount)
         const currentUserPoint = await this.getUserPoint(userId);
-        if (transactionType === 1 && currentUserPoint.point < amount) throw new Error("포인트가 부족합니다.")
-        const updatedPoint = transactionType === 0 ? currentUserPoint.point + amount : currentUserPoint.point - amount
-        const updatedUserPoint = await this.userDb.insertOrUpdate(userId, updatedPoint)
+        const calculatedPoint = this.calculatePoint(currentUserPoint.point, amount, transactionType)
+        const updatedUserPoint = await this.updateUserPointTable(userId, calculatedPoint)
         await this.insertPointHistory(userId, amount, transactionType)
         return updatedUserPoint
     }
 
-    insertPointHistory(userId: number, amount: number, transactionType: number) {
-        return this.historyDb.insert(userId, amount, transactionType, Date.now())
+    calculatePoint(currentPoint: number, amount: number, transactionType: TransactionType) {
+        const calculatedPoint = transactionType === 0 ? currentPoint + amount : currentPoint - amount
+        if (calculatedPoint < 0) throw new Error("포인트가 부족합니다.")
+        return calculatedPoint
+    }
+
+    async updateUserPointTable(userId: number, updatedPoint: number) {
+        try {
+            const updatedUserPoint = await this.userDb.insertOrUpdate(userId, updatedPoint)
+            return updatedUserPoint
+        } catch (e) {
+            throw new Error("포인트 업데이트에 실패하였습니다.")
+        }
+    }
+
+
+    async insertPointHistory(userId: number, amount: number, transactionType: number) {
+        try {
+            const pointHistory = await this.historyDb.insert(userId, amount, transactionType, Date.now())
+            return pointHistory
+        } catch (e) {
+            throw new Error("포인트 내역 추가에 실패하였습니다.")
+        }
     }
 
     async getUserPointHistory(userId: number) {

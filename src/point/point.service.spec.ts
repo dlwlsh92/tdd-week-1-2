@@ -69,34 +69,23 @@ describe('Point 조회, 충전, 사용, 내역 조회 로직 테스트', () => {
         })
     })
 
-    describe('포인트를 사용하는 로직에 대한 테스트', () => {
-        it('현재 포인트가 사용하려는 포인트보다 적을 경우 에러를 반환한다.', async () => {
-            const userId = 2;
-            const amount = 500;
-            jest.spyOn(userDb, 'selectById').mockResolvedValue({id: userId, point: 300, updateMillis: Date.now()});
-            await expect(() => pointService.usePoint(userId, amount)).rejects.toThrow('포인트가 부족합니다.')
+    describe('포인트를 충전/사용 시 포인트를 계산하는 로직에 대한 테스트', () => {
+        it('사용할 포인트가 현재 포인트보다 많을 경우, 에러를 반환한다.', () => {
+            const currentPoint = 1000;
+            const useAmount = 1500;
+            expect(() => pointService.calculatePoint(currentPoint, useAmount, 1)).toThrow('포인트가 부족합니다.')
         })
 
-        it('포인트를 사용하면 사용한 포인트만큼 차감된 포인트를 반환한다.', async () => {
-            const userId = 3;
+        it('포인트를 사용하는 경우, 현재 포인트에서 사용할 포인트를 차감한 값을 반환한다.', () => {
+            const currentPoint = 1000;
             const useAmount = 500;
-            const currentPoint = 1000;
-            jest.spyOn(userDb, 'selectById').mockResolvedValue({id: userId, point: currentPoint, updateMillis: Date.now()});
-            jest.spyOn(userDb, 'insertOrUpdate').mockImplementation((id, amount) => Promise.resolve({id, point: currentPoint - useAmount, updateMillis: Date.now()}))
-            const userPoint: UserPoint = await pointService.usePoint(userId, useAmount);
-            expect(userPoint.point).toBe(500);
+            expect(pointService.calculatePoint(currentPoint, useAmount, 1)).toBe(500);
         })
-    })
 
-    describe('포인트를 충전하는 로직에 대한 테스트', () => {
-        it('포인트를 충전하면 충전한 포인트만큼 증가된 포인트를 반환한다.', async () => {
-            const userId = 4;
-            const ChargeAmount = 500;
+        it('포인트를 충전하는 경우, 현재 포인트에서 충전할 포인트를 더한 값을 반환한다.', () => {
             const currentPoint = 1000;
-            jest.spyOn(userDb, 'selectById').mockResolvedValue({id: userId, point: currentPoint, updateMillis: Date.now()});
-            jest.spyOn(userDb, 'insertOrUpdate').mockImplementation((id, amount) => Promise.resolve({id, point: currentPoint + ChargeAmount, updateMillis: Date.now()}))
-            const userPoint: UserPoint = await pointService.chargePoint(userId, ChargeAmount);
-            expect(userPoint.point).toBe(1500);
+            const chargeAmount = 500;
+            expect(pointService.calculatePoint(currentPoint, chargeAmount, 0)).toBe(1500);
         })
     })
 
